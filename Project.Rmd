@@ -1,0 +1,102 @@
+---
+title: "Course Project: Regression Models"
+output: pdf_document
+---
+
+#Executive Summary
+This study is an analysis of the mtcars dataset in which I have investigated the effect that transmission type has on fuel efficiency. I have compared a series of regression models to develop a comprehensive model that fits the observations with reasonable precision. The resultant model shows efficiency (mpg) vs weight (wt), number of cylinders (cyl) and transmission type (am): mpg ~ wt + cyl + am. In this fitted model, manual transmissions are associated with an increase of 0.15 mpg, all other factors being equal. This small change is not statistically significant at p < 0.05, leading me to conclue that there is no evidence that transmission type per se has an effect on fuel efficiency. 
+
+#Loading data and exploratory analysis
+Data were loaded into R with the following commands. 
+```{r, warning=FALSE, message=FALSE}
+data("mtcars")
+library(ggplot2); require(GGally)
+cars <- mtcars
+cars$trans <- ifelse(cars$am == 0, "automatic", "manual")
+```
+A simple analysis of fuel efficiency for manual versus automatic transmission shows that if we ignore any other factor, cars with manual transmissions appear to have greater fuel efficiency (Fig. 1). Yet there may be other confounding factors at play here. 
+
+#Results
+##Correlation analysis
+To explore what factors might have the greatest effect on fuel efficiency, I performed pair-wise correlation analysis with mpg versus all other factors in the data set:
+```{r}
+cor(cars$mpg, cars[,-12])
+```
+
+As we can see, the greatest correlation is between mpg and wt. cyl and disp also appear to have a strong correlation with mpg, yet transmission type (am) is among the lowest correlations.
+
+##Models
+To develop a working model, I first produced a model mpg ~ 1 and used the add1 command to see which factor would have the greatest impact on improving the fit.
+```{r, results="hide"}
+fit1 <- lm(mpg ~ 1, data = cars)
+add1(fit1, scope =cars[,-12], test = "F")
+```
+This analysis (see appendix for output) shows that wt is the variable that most strongly affects mpg. I added wt to the model and performed the analysis again. I repeated the process until there were no longer missing variables that would give a statisical improvement to the model. With this method, the variable cyl was added as a factor. To address the question of the study, the am variable was also added, although ANOVA shows that this addition makes no improvement to the model (appendix). The final model was called fit4.  
+
+```{r, echo = FALSE, results = "hide"}
+fit2 <- lm(mpg ~ wt, data = cars)
+add1(fit2, scope = cars[,-12], test = "F")
+```
+```{r, echo=FALSE, results= "hide"}
+fit3f <- lm(mpg ~ wt + as.factor(cyl), data = cars)
+summary(fit3f)
+```
+```{r}
+fit4 <- lm(mpg ~ wt + as.factor(cyl) + am, data = cars)
+summary(fit4)$coef
+```
+The addition of the binary am variable gives a coefficient that affects the y intercept of the model. This is found under the column heading Estimate for the am variable (fifth row). The value 0.15 indicates that, all other factors being equal, manual transmissions (am = 1) are correlated with a 0.15 mpg increase in fuel efficiency. Note the high p value for this variable and low T statistic, indicating that we can be 90% confident that transmission type does not affect fuel efficiency. 
+
+##Diagnostics
+To analyse the fit of the model, I put it through several standard diagnostic tests (Fig. 2). Most notably, the residual plot (top left panel), shows no obvious pattern across the distribution.
+
+Figure 3 shows a plot of the data. This includes regression lines and 95% confidence intervals for each of the three factors in the cyl variable. I have also drawn regression lines for the linear model mpg ~ wt with (blue) and without (red) the inclusion of the am variable. As we can see, inclusion of am has almost no effect on the fit of the model. 
+
+
+#Conclusions
+In this study, I created a multivariable linear regression model to describe the mtcars data. I found that manual transmissions are correlated with a 0.15 mpg increase in fuel efficiency, but that this is not statistically significant.
+
+
+#APPENDIX
+##Figure 1
+```{r, echo=FALSE, fig.height=3, fig.width=3}
+g1 <- ggplot(cars, aes(x = as.factor(am), y = mpg))
+p1 <- g1 + geom_boxplot() +
+        labs(title = "Figure 1: Fuel efficiences") +
+        labs(x = "Transmission Type")
+p1
+```
+
+##Figure 2: Output of add1 command on model fit1
+```{r}
+fit1 <- lm(mpg ~ 1, data = cars)
+add1(fit1, scope =cars[,-12], test = "F")
+```
+##Figure 3: ANOVA on models
+An ANOVA test comparing the four models confirms that the addition of the am variable adds no precision to the model, indicating that there is no evidence that transmission type affects mpg, all other factors being equal. 
+```{r}
+anova(fit1, fit2, fit3f, fit4)
+```
+##Figure 4: Diagnostic plots on fit4 model
+```{r}
+par(mfrow = c(2,2)); plot(fit4, main = "Figure 4")
+```
+
+\newpage
+##Figure 5: plotting the data points
+To see a summary of the data, I plotted mpg versus wt and colour coded for the cyl variable. I have overlaid a regression line for each cyl factor with 95% confidence intervals for regression fit in each. The overlaid red and blue lines are the regression fit for mgp ~ wt + ab, showing the effect of transmission type. 
+
+
+```{r, echo = F}
+cars$cyl <- factor(cars$cyl)
+g2 <- ggplot(cars, aes(x = wt, y = mpg, colour = cyl))
+p2 <- g2 + geom_point(size = 3) + 
+        geom_smooth(method = lm, se = T, fullrange = F) +
+        geom_abline(intercept = fit2$coef[1], slope = fit2$coef[2], 
+                    colour = "red") +
+        geom_abline(intercept = fit2$coef[1] + fit4$coef[5], 
+                    slope = fit2$coef[2], colour = "blue") +
+        labs(title = "Summary of fitted model")
+
+p2
+```
